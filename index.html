@@ -18,21 +18,48 @@
       <small>Quản lý cửa hàng thông minh</small>
     </div>
     <nav>
-      <button class="nav-item" data-view="dashboard"><span class="nav-icon">🏠</span> Tổng quan</button>
-      <button class="nav-item" data-view="products"><span class="nav-icon">🛒</span> Sản phẩm</button>
-      <button class="nav-item" data-view="invoices"><span class="nav-icon">🧾</span> Hóa đơn</button>
-      <button class="nav-item" data-view="revenue"><span class="nav-icon">📈</span> Doanh thu</button>
-      <button class="nav-item" data-view="customers"><span class="nav-icon">👥</span> Khách hàng</button>
+      <button class="nav-item" data-view="dashboard">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span>
+        Tổng quan
+      </button>
+      <button class="nav-item" data-view="products">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+        Sản phẩm
+      </button>
+      <button class="nav-item" data-view="invoices">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h6"/></svg></span>
+        Hóa đơn
+      </button>
+      <button class="nav-item" data-view="revenue">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg></span>
+        Doanh thu
+      </button>
+      <button class="nav-item" data-view="customers">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        Khách hàng
+      </button>
+      <button class="nav-item" data-view="suppliers">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+        Nhà cung cấp
+      </button>
     </nav>
   </aside>
 
   <!-- ============ MAIN ============ -->
   <main>
+    <!-- Lời chào + đồng hồ -->
+    <div class="card greeting-card" id="greeting-card">
+      <p id="greeting-text">Xin chào! Đang tải giờ...</p>
+    </div>
+
     <!-- Thanh tìm kiếm AI -->
     <div class="topbar">
       <div class="ai-bar">
         <input type="text" id="ai-input" placeholder='Hỏi bằng ngôn ngữ tự nhiên: "Doanh thu tuần trước", "Hóa đơn ngày 10/05"...'>
-        <button id="ai-search-btn">🤖 Hỏi AI</button>
+        <button id="ai-search-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>
+          Hỏi AI
+        </button>
       </div>
       <p class="ai-hint">Trợ lý AI hiểu tiếng Việt tự nhiên — không cần cú pháp tìm kiếm phức tạp.</p>
       <div class="ai-suggestions">
@@ -66,6 +93,13 @@
           <div id="dashboard-low-stock-list"></div>
         </div>
       </div>
+
+      <div class="card" id="dashboard-online-orders-card">
+        <div class="toolbar" style="margin-bottom:10px">
+          <h3 style="margin:0">📥 Đơn đặt hàng online mới</h3>
+        </div>
+        <div id="dashboard-online-orders"></div>
+      </div>
     </section>
 
     <!-- ============ SẢN PHẨM ============ -->
@@ -77,6 +111,7 @@
           <input type="text" id="product-search" placeholder="Tìm sản phẩm...">
           <button class="btn-primary" id="btn-add-product">+ Thêm sản phẩm</button>
         </div>
+        <div class="category-tabs" id="category-tabs"></div>
         <table>
           <thead><tr><th>Tên sản phẩm</th><th>Danh mục</th><th>Giá bán</th><th>Tồn kho</th><th></th></tr></thead>
           <tbody id="product-table-body"></tbody>
@@ -143,11 +178,49 @@
         </table>
       </div>
     </section>
+
+    <!-- ============ NHÀ CUNG CẤP ============ -->
+    <section id="view-suppliers" class="view">
+      <h1 class="page-title">Nhà cung cấp</h1>
+      <p class="page-sub">Số điện thoại liên hệ các công ty, đại lý cung cấp hàng cho cửa hàng.</p>
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="supplier-search" placeholder="Tìm nhà cung cấp...">
+          <button class="btn-primary" id="btn-add-supplier">+ Thêm nhà cung cấp</button>
+        </div>
+        <table>
+          <thead><tr><th>Tên</th><th>Loại</th><th>Điện thoại</th><th>Ghi chú</th><th></th></tr></thead>
+          <tbody id="supplier-table-body"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 </div>
 
 <div id="modal-root"></div>
 <div id="toast-root"></div>
+
+<!-- ============ WIDGET LIÊN HỆ NỔI ============ -->
+<div class="contact-widget" id="contact-widget">
+  <div class="contact-menu" id="contact-menu">
+    <a class="contact-item contact-zalo" href="https://zalo.me/0983621217" target="_blank" rel="noopener">
+      <span class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
+      <span>Chat Zalo — 0983 621 217</span>
+    </a>
+    <a class="contact-item contact-fb" href="https://www.facebook.com/nguyen.quoc.phong.517574" target="_blank" rel="noopener">
+      <span class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3.5l.5-4H14V7a1 1 0 0 1 1-1h3z"/></svg></span>
+      <span>Nhắn tin Facebook</span>
+    </a>
+    <button class="contact-item contact-order" id="btn-order-online">
+      <span class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+      <span>Đặt hàng online</span>
+    </button>
+  </div>
+  <button class="contact-fab" id="contact-fab" aria-label="Mở menu liên hệ" aria-expanded="false">
+    <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+</div>
 
 <script src="js/data.js"></script>
 <script src="js/nlp.js"></script>
