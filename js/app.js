@@ -11,6 +11,9 @@ const ICON_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 document.addEventListener("DOMContentLoaded", () => {
   seedIfEmpty();
   syncProductCatalog();
+  initTheme();
+  initSettings();
+  initCurrentUserSelect();
   initNav();
   initModal();
   initAI();
@@ -25,6 +28,23 @@ document.addEventListener("DOMContentLoaded", () => {
   renderDashboard();
   showView("dashboard");
 });
+
+/* ---------------- Thanh tiến trình tải trang (giả lập loading chuyên nghiệp) ---------------- */
+function showTopProgress() {
+  const bar = document.getElementById("top-progress-bar");
+  bar.style.width = "0%";
+  bar.classList.add("loading");
+  requestAnimationFrame(() => { bar.style.width = "70%"; });
+}
+function finishTopProgress() {
+  const bar = document.getElementById("top-progress-bar");
+  bar.style.width = "100%";
+  setTimeout(() => { bar.classList.remove("loading"); bar.style.width = "0%"; }, 250);
+}
+
+function skeletonRows(n = 3) {
+  return Array.from({ length: n }).map(() => `<div class="skeleton-row" style="width:${60 + Math.random() * 35}%"></div>`).join("");
+}
 
 /* ---------------- Lời chào + đồng hồ ---------------- */
 const WEEKDAY_VN = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
@@ -51,6 +71,7 @@ function initNav() {
 }
 
 function showView(name) {
+  showTopProgress();
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
   const view = document.getElementById("view-" + name);
@@ -63,8 +84,11 @@ function showView(name) {
   if (name === "invoices") renderInvoices();
   if (name === "customers") renderCustomers();
   if (name === "suppliers") renderSuppliers();
-  if (name === "notes") { renderNotes(); renderEmployees(); renderAttendance(); }
+  if (name === "notes") { renderNotes(); renderEmployees(); renderAttendance(); renderAttendanceChecklist(); }
   if (name === "revenue") renderRevenue();
+  if (name === "activity") renderActivityLog();
+  if (name === "settings") loadSettingsForm();
+  finishTopProgress();
 }
 
 /* ---------------- Modal & Toast ---------------- */
@@ -113,6 +137,10 @@ function initNotesAndAttendance() {
   document.getElementById("btn-add-note").addEventListener("click", openNoteForm);
   document.getElementById("btn-add-employee").addEventListener("click", openEmployeeForm);
   document.getElementById("btn-add-attendance").addEventListener("click", openAttendanceForm);
+
+  const dateInput = document.getElementById("attendance-calendar-date");
+  dateInput.value = new Date().toISOString().slice(0, 10);
+  dateInput.addEventListener("change", renderAttendanceChecklist);
 }
 
 /* --- Ghi chú thanh toán / nợ --- */
@@ -189,6 +217,8 @@ function openEmployeeForm() {
     EmployeeStore.add(data);
     closeModal();
     renderEmployees();
+    renderAttendanceChecklist();
+    populateCurrentUserOptions();
     showToast("Đã thêm nhân viên");
   });
 }
@@ -210,10 +240,41 @@ function deleteEmployee(id) {
   EmployeeStore.remove(id);
   renderEmployees();
   renderAttendance();
+  renderAttendanceChecklist();
+  populateCurrentUserOptions();
   showToast("Đã xóa nhân viên", "warn");
 }
 
-/* --- Chấm công --- */
+/* --- Chấm công theo lịch (tick chọn) --- */
+function renderAttendanceChecklist() {
+  const dateInput = document.getElementById("attendance-calendar-date");
+  if (!dateInput) return;
+  const date = dateInput.value || new Date().toISOString().slice(0, 10);
+  const employees = EmployeeStore.all();
+  const box = document.getElementById("attendance-checklist");
+  if (!employees.length) {
+    box.innerHTML = `<p class="empty-note">Chưa có nhân viên nào — hãy thêm nhân viên trước.</p>`;
+    return;
+  }
+  box.innerHTML = employees.map(e => {
+    const rec = AttendanceStore.recordFor(e.id, date);
+    const checked = rec && rec.status !== "Nghỉ";
+    return `
+    <label class="att-check-row ${checked ? "checked" : ""}" data-emp="${e.id}">
+      <input type="checkbox" ${checked ? "checked" : ""} onchange="onAttendanceTick('${e.id}', this.checked)">
+      <span>${e.name}</span>
+    </label>`;
+  }).join("");
+}
+
+function onAttendanceTick(employeeId, present) {
+  const date = document.getElementById("attendance-calendar-date").value;
+  AttendanceStore.setPresent(employeeId, date, present);
+  renderAttendanceChecklist();
+  renderAttendance();
+}
+
+/* --- Chấm công (form chi tiết: nửa công/nghỉ + ghi chú) --- */
 function openAttendanceForm() {
   const employees = EmployeeStore.all();
   if (!employees.length) {
@@ -269,6 +330,106 @@ function deleteAttendance(id) {
   renderAttendance();
   showToast("Đã xóa bản ghi chấm công", "warn");
 }
+
+/* ---------------- Dark mode ---------------- */
+function initTheme() {
+  const saved = localStorage.getItem(DB_KEYS.theme) || "light";
+  document.documentElement.setAttribute("data-theme", saved);
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", current);
+    localStorage.setItem(DB_KEYS.theme, current);
+  });
+}
+
+/* ---------------- Cài đặt cửa hàng ---------------- */
+function applyBrandFromSettings() {
+  const s = SettingsStore.get();
+  document.getElementById("brand-name-text").textContent = s.storeName;
+  document.title = `${s.storeName} — Hệ Thống Quản Lý Cửa Hàng Tạp Hóa Thông Minh`;
+  const slot = document.getElementById("brand-logo-slot");
+  if (s.logo) {
+    slot.innerHTML = `<img src="${s.logo}" alt="Logo" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+  }
+}
+
+function initSettings() {
+  applyBrandFromSettings();
+  const form = document.getElementById("settings-form");
+  const fileInput = document.getElementById("settings-logo-input");
+  let pendingLogo = null;
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingLogo = reader.result;
+      document.getElementById("settings-logo-preview").innerHTML = `<img src="${pendingLogo}" alt="Xem trước logo">`;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form).entries());
+    delete data.logoFile;
+    if (pendingLogo) data.logo = pendingLogo;
+    SettingsStore.save(data);
+    applyBrandFromSettings();
+    renderDashboard();
+    showToast("Đã lưu cài đặt cửa hàng");
+  });
+}
+
+function loadSettingsForm() {
+  const s = SettingsStore.get();
+  const form = document.getElementById("settings-form");
+  form.storeName.value = s.storeName;
+  form.address.value = s.address;
+  form.hotline.value = s.hotline;
+  form.vatPercent.value = s.vatPercent;
+  form.currency.value = s.currency;
+  form.language.value = s.language;
+  document.getElementById("settings-logo-preview").innerHTML = s.logo ? `<img src="${s.logo}" alt="Logo hiện tại">` : `<span class="page-sub" style="margin:0">Chưa có logo tùy chỉnh — đang dùng logo mặc định.</span>`;
+}
+
+/* ---------------- Người đang trực ---------------- */
+function initCurrentUserSelect() {
+  const select = document.getElementById("current-user-select");
+  populateCurrentUserOptions();
+  select.value = CurrentUserStore.get();
+  select.addEventListener("change", () => CurrentUserStore.set(select.value));
+}
+
+function populateCurrentUserOptions() {
+  const select = document.getElementById("current-user-select");
+  const names = ["Quản lý", ...EmployeeStore.all().map(e => e.name)];
+  const current = select.value || CurrentUserStore.get();
+  select.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join("");
+  select.value = names.includes(current) ? current : "Quản lý";
+}
+/* ---------------- Nhật ký hoạt động ---------------- */
+function renderActivityLog() {
+  const logs = ActivityLogStore.all().slice().reverse();
+  const box = document.getElementById("activity-log-list");
+  box.innerHTML = logs.length ? logs.map(l => {
+    const t = new Date(l.createdAt);
+    const time = t.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    const date = t.toLocaleDateString("vi-VN");
+    return `<div class="activity-row"><span class="activity-time">${time}<br>${date}</span><span>${l.message}</span></div>`;
+  }).join("") : `<p class="empty-note">Chưa có hoạt động nào được ghi lại.</p>`;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("btn-clear-log");
+  if (btn) btn.addEventListener("click", () => {
+    if (!confirm("Xóa toàn bộ nhật ký hoạt động?")) return;
+    ActivityLogStore.clear();
+    renderActivityLog();
+    showToast("Đã xóa nhật ký", "warn");
+  });
+});
 
 /* ---------------- Widget liên hệ & Đặt hàng online ---------------- */
 function initContactWidget() {

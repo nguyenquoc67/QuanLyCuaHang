@@ -12,6 +12,10 @@ const DB_KEYS = {
   notes: "sth_notes",
   employees: "sth_employees",
   attendance: "sth_attendance",
+  settings: "sth_settings",
+  activityLog: "sth_activity_log",
+  currentUser: "sth_current_user",
+  theme: "sth_theme",
   seeded: "sth_seeded_v1",
 };
 
@@ -70,7 +74,7 @@ function syncProductCatalog() {
   const existingNames = new Set(ProductStore.all().map(p => p.name.trim().toLowerCase()));
   CATALOG_PRODUCTS.forEach(item => {
     if (!existingNames.has(item.name.trim().toLowerCase())) {
-      ProductStore.add({ ...item, stock: 50, minStock: 10 });
+      ProductStore.add({ ...item, stock: 50, minStock: 10 }, { silent: true });
     }
   });
 }
@@ -97,7 +101,7 @@ function saveList(key, list) {
 const ProductStore = {
   all() { return loadList(DB_KEYS.products); },
   get(id) { return this.all().find(p => p.id === id) || null; },
-  add(data) {
+  add(data, opts = {}) {
     const list = this.all();
     const item = {
       id: uid("sp"),
@@ -111,6 +115,7 @@ const ProductStore = {
     };
     list.push(item);
     saveList(DB_KEYS.products, list);
+    if (!opts.silent) logActivity(`thêm sản phẩm "${item.name}"`);
     return item;
   },
   update(id, data) {
@@ -119,11 +124,14 @@ const ProductStore = {
     if (idx === -1) return null;
     list[idx] = { ...list[idx], ...data, price: Number(data.price), stock: Number(data.stock), minStock: Number(data.minStock) };
     saveList(DB_KEYS.products, list);
+    logActivity(`sửa sản phẩm "${list[idx].name}"`);
     return list[idx];
   },
   remove(id) {
+    const p = this.get(id);
     const list = this.all().filter(p => p.id !== id);
     saveList(DB_KEYS.products, list);
+    if (p) logActivity(`xóa sản phẩm "${p.name}"`);
   },
   adjustStock(id, delta) {
     const list = this.all();
@@ -141,7 +149,7 @@ const ProductStore = {
 const CustomerStore = {
   all() { return loadList(DB_KEYS.customers); },
   get(id) { return this.all().find(c => c.id === id) || null; },
-  add(data) {
+  add(data, opts = {}) {
     const list = this.all();
     const item = {
       id: uid("kh"),
@@ -152,6 +160,7 @@ const CustomerStore = {
     };
     list.push(item);
     saveList(DB_KEYS.customers, list);
+    if (!opts.silent) logActivity(`thêm khách hàng "${item.name}"`);
     return item;
   },
   update(id, data) {
@@ -160,11 +169,14 @@ const CustomerStore = {
     if (idx === -1) return null;
     list[idx] = { ...list[idx], ...data };
     saveList(DB_KEYS.customers, list);
+    logActivity(`sửa thông tin khách hàng "${list[idx].name}"`);
     return list[idx];
   },
   remove(id) {
+    const c = this.get(id);
     const list = this.all().filter(c => c.id !== id);
     saveList(DB_KEYS.customers, list);
+    if (c) logActivity(`xóa khách hàng "${c.name}"`);
   },
   findByName(query) {
     const q = removeDiacritics(query.toLowerCase()).trim();
@@ -187,7 +199,7 @@ const InvoiceStore = {
     const n = list.length + 1;
     return "HD" + String(n).padStart(5, "0");
   },
-  add({ customerId, items, note, createdAt }) {
+  add({ customerId, items, note, createdAt }, opts = {}) {
     const list = this.all();
     const total = items.reduce((s, it) => s + it.price * it.qty, 0);
     const item = {
@@ -203,6 +215,7 @@ const InvoiceStore = {
     saveList(DB_KEYS.invoices, list);
     // Trừ tồn kho
     items.forEach(it => ProductStore.adjustStock(it.productId, -it.qty));
+    if (!opts.silent) logActivity(`bán hóa đơn ${item.code} — ${formatVND(total)}`);
     return item;
   },
   remove(id) {
@@ -210,6 +223,7 @@ const InvoiceStore = {
     if (inv) {
       // Hoàn lại tồn kho khi xóa hóa đơn
       inv.items.forEach(it => ProductStore.adjustStock(it.productId, it.qty));
+      logActivity(`xóa hóa đơn ${inv.code}`);
     }
     const list = this.all().filter(i => i.id !== id);
     saveList(DB_KEYS.invoices, list);
@@ -306,6 +320,82 @@ const AttendanceStore = {
   remove(id) {
     saveList(DB_KEYS.attendance, this.all().filter(a => a.id !== id));
   },
+  recordFor(employeeId, date) {
+    return this.all().find(a => a.employeeId === employeeId && a.date === date) || null;
+  },
+  forDate(date) {
+    return this.all().filter(a => a.date === date);
+  },
+  /** Dùng cho lịch tick-chọn: bật = ghi "Đủ công", tắt = xóa bản ghi ngày đó */
+  setPresent(employeeId, date, present) {
+    const list = this.all();
+    const idx = list.findIndex(a => a.employeeId === employeeId && a.date === date);
+    const emp = EmployeeStore.get(employeeId);
+    if (present) {
+      if (idx === -1) {
+        list.push({ id: uid("cc"), employeeId, date, status: "Đủ công", note: "", createdAt: new Date().toISOString() });
+        saveList(DB_KEYS.attendance, list);
+        if (emp) logActivity(`chấm công có mặt cho "${emp.name}" ngày ${date}`);
+      }
+    } else {
+      if (idx !== -1) {
+        list.splice(idx, 1);
+        saveList(DB_KEYS.attendance, list);
+        if (emp) logActivity(`bỏ chấm công "${emp.name}" ngày ${date}`);
+      }
+    }
+  },
+};
+
+/* ---------------- Cài đặt cửa hàng ---------------- */
+const DEFAULT_SETTINGS = {
+  storeName: "Tạp Hóa Cô Năm",
+  address: "",
+  hotline: "0983621217",
+  vatPercent: 0,
+  currency: "₫",
+  language: "vi",
+  logo: "", // base64 data URI, rỗng = dùng logo mặc định
+};
+
+const SettingsStore = {
+  get() {
+    try {
+      const raw = localStorage.getItem(DB_KEYS.settings);
+      return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+    } catch (e) {
+      return { ...DEFAULT_SETTINGS };
+    }
+  },
+  save(data) {
+    const merged = { ...this.get(), ...data };
+    localStorage.setItem(DB_KEYS.settings, JSON.stringify(merged));
+    return merged;
+  },
+};
+
+/* ---------------- Nhật ký hoạt động ---------------- */
+const ActivityLogStore = {
+  all() { return loadList(DB_KEYS.activityLog); },
+  add(message) {
+    const list = this.all();
+    list.push({ id: uid("log"), message, createdAt: new Date().toISOString() });
+    // Chỉ giữ 200 mục gần nhất để tránh phình localStorage
+    const trimmed = list.slice(-200);
+    saveList(DB_KEYS.activityLog, trimmed);
+  },
+  clear() { saveList(DB_KEYS.activityLog, []); },
+};
+
+function logActivity(message) {
+  const actor = CurrentUserStore.get();
+  ActivityLogStore.add(`${actor} ${message}`);
+}
+
+/* ---------------- Người dùng hiện tại (không có đăng nhập thật) ---------------- */
+const CurrentUserStore = {
+  get() { return localStorage.getItem(DB_KEYS.currentUser) || "Quản lý"; },
+  set(name) { localStorage.setItem(DB_KEYS.currentUser, name); },
 };
 
 /* ---------------- Nhà cung cấp ---------------- */
@@ -375,7 +465,8 @@ function removeDiacritics(str) {
 }
 
 function formatVND(n) {
-  return Number(n || 0).toLocaleString("vi-VN") + " ₫";
+  const currency = (typeof SettingsStore !== "undefined") ? SettingsStore.get().currency : "₫";
+  return Number(n || 0).toLocaleString("vi-VN") + " " + currency;
 }
 
 function formatDate(d) {
@@ -399,14 +490,14 @@ function seedIfEmpty() {
     { name: "Bánh Oreo", category: "Bánh kẹo", unit: "gói", price: 15000, stock: 45, minStock: 10 },
     { name: "Kẹo dẻo Haribo", category: "Bánh kẹo", unit: "gói", price: 28000, stock: 18, minStock: 6 },
   ];
-  const products = sampleProducts.map(p => ProductStore.add(p));
+  const products = sampleProducts.map(p => ProductStore.add(p, { silent: true }));
 
   const sampleCustomers = [
     { name: "Nguyễn Thị An", phone: "0901234567", address: "12 Lê Lợi, Q.1" },
     { name: "Trần Văn Bình", phone: "0912345678", address: "45 Nguyễn Trãi, Q.5" },
     { name: "Lê Thị Cúc", phone: "0987654321", address: "78 Cách Mạng Tháng 8" },
   ];
-  const customers = sampleCustomers.map(c => CustomerStore.add(c));
+  const customers = sampleCustomers.map(c => CustomerStore.add(c, { silent: true }));
 
   // Tạo vài hóa đơn mẫu trong 14 ngày gần đây
   const now = new Date();
