@@ -27,6 +27,28 @@
 
 * { box-sizing: border-box; }
 
+/* Trạng thái focus rõ ràng cho điều hướng bằng bàn phím */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2.5px solid var(--red);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Tôn trọng lựa chọn giảm chuyển động của người dùng */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+button, .nav-item, .btn-icon, .btn-primary, .btn-ghost, .ai-suggestion, [onclick] {
+  cursor: pointer;
+}
+button:disabled { cursor: not-allowed; opacity: 0.6; }
+
 body {
   margin: 0;
   font-family: var(--font-body);
@@ -92,7 +114,7 @@ button, input, select { font-family: inherit; }
   cursor: pointer;
   opacity: 0.75;
   border-left: 3px solid transparent;
-  transition: all 0.15s ease;
+  transition: opacity 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 .nav-item:hover { opacity: 1; background: rgba(247,241,223,0.06); }
 .nav-item.active {
@@ -101,7 +123,8 @@ button, input, select { font-family: inherit; }
   background: rgba(247,241,223,0.08);
   font-weight: 600;
 }
-.nav-icon { font-size: 17px; width: 20px; text-align: center; }
+.nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
+.nav-icon svg { width: 100%; height: 100%; stroke: currentColor; }
 
 /* ---------------- Main / Topbar ---------------- */
 main { padding: 20px 32px 48px; max-width: 1180px; }
@@ -213,14 +236,24 @@ main { padding: 20px 32px 48px; max-width: 1180px; }
 .btn-primary {
   background: var(--red); color: var(--white-paper); border: none; border-radius: 8px;
   padding: 10px 18px; font-weight: 600; cursor: pointer; font-size: 14.5px;
+  transition: background-color 0.2s ease, transform 0.15s ease;
 }
 .btn-primary:hover { background: var(--red-soft); }
+.btn-primary:active { transform: scale(0.97); }
 .btn-ghost {
   background: transparent; border: 1.5px solid var(--line); color: var(--ink);
   border-radius: 8px; padding: 9px 16px; cursor: pointer; font-size: 14.5px;
+  transition: border-color 0.2s ease;
 }
 .btn-ghost:hover { border-color: var(--ink); }
-.btn-icon { background: none; border: none; cursor: pointer; font-size: 15px; padding: 4px; }
+.btn-icon {
+  background: none; border: none; cursor: pointer; padding: 5px;
+  border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;
+  transition: background-color 0.2s ease;
+}
+.btn-icon:hover { background: rgba(161,61,43,0.1); }
+.btn-icon svg { width: 17px; height: 17px; stroke: var(--ink-soft); }
+.btn-icon:hover svg { stroke: var(--red); }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 thead th {
@@ -298,6 +331,118 @@ tr.row-warn td:first-child { border-left: 3px solid var(--gold); }
 .revenue-stats { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
 .revenue-stats .stat-card { flex: 1; min-width: 150px; }
 
+/* ---------------- Lời chào + đồng hồ ---------------- */
+.greeting-card {
+  margin-bottom: 14px;
+  padding: 12px 20px;
+  background: var(--paper-dark);
+  border-style: dashed;
+}
+.greeting-card p {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--ink-soft);
+}
+.greeting-card p::before { content: "🕐 "; }
+
+/* ---------------- Tab danh mục sản phẩm ---------------- */
+.category-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.cat-tab {
+  background: var(--paper);
+  border: 1.5px solid var(--line);
+  color: var(--ink-soft);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cat-tab:hover { border-color: var(--red); color: var(--red); }
+.cat-tab.active { background: var(--red); border-color: var(--red); color: var(--white-paper); }
+
+.phone-link { color: var(--red); text-decoration: none; font-family: var(--font-mono); }
+.phone-link:hover { text-decoration: underline; }
+
+/* ---------------- Widget liên hệ nổi ---------------- */
+.contact-widget {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.contact-fab {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--red);
+  color: var(--white-paper);
+  border: none;
+  box-shadow: 0 6px 18px rgba(43,27,18,0.35);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.contact-fab:hover { background: var(--red-soft); transform: scale(1.05); }
+.contact-fab svg { width: 24px; height: 24px; }
+.contact-fab .icon-close { display: none; }
+.contact-widget.open .contact-fab .icon-open { display: none; }
+.contact-widget.open .contact-fab .icon-close { display: block; }
+
+.contact-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.contact-widget.open .contact-menu {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.contact-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--white-paper);
+  border: 1px solid var(--line);
+  border-radius: 30px;
+  padding: 10px 16px 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.contact-item:hover { border-color: var(--red); color: var(--red); }
+.contact-icon { width: 20px; height: 20px; display: flex; }
+.contact-icon svg { width: 100%; height: 100%; }
+.contact-zalo .contact-icon { color: #0068FF; }
+.contact-fb .contact-icon { color: #1877F2; }
+.contact-order .contact-icon { color: var(--green); }
+
+/* ---------------- Card đơn đặt hàng online ---------------- */
+.order-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 10px 4px; border-bottom: 1px dashed var(--line); gap: 10px; font-size: 14px;
+}
+.order-row:last-child { border-bottom: none; }
+.order-row-name { font-weight: 600; }
+.order-row-meta { color: var(--ink-soft); font-size: 12.5px; margin-top: 2px; }
+
 /* ---------------- Responsive ---------------- */
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
@@ -309,4 +454,12 @@ tr.row-warn td:first-child { border-left: 3px solid var(--gold); }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .two-col { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar input[type="text"] { min-width: 0; }
+  main { padding: 12px; }
+  .brand { font-size: 26px; }
 }
