@@ -482,13 +482,13 @@ function seedIfEmpty() {
     { name: "Gạo ST25", category: "Đồ ăn", unit: "kg", price: 22000, stock: 80, minStock: 15 },
     { name: "Nước mắm Phú Quốc", category: "Gia vị", unit: "chai", price: 45000, stock: 30, minStock: 8 },
     { name: "Mì gói Hảo Hảo", category: "Đồ ăn", unit: "gói", price: 4000, stock: 200, minStock: 30 },
-    { name: "Trứng gà", category: "Đồ ăn", unit: "chục", price: 32000, stock: 20, minStock: 10 },
+    { name: "Trứng gà", category: "Đồ ăn", unit: "chục", price: 32000, stock: 8, minStock: 10 }, // sắp hết hàng
     { name: "Dầu ăn Neptune", category: "Gia vị", unit: "chai", price: 52000, stock: 25, minStock: 6 },
     { name: "Sữa Vinamilk", category: "Nước uống", unit: "hộp", price: 7000, stock: 150, minStock: 20 },
     { name: "Đường cát trắng", category: "Gia vị", unit: "kg", price: 24000, stock: 40, minStock: 10 },
-    { name: "Nước ngọt Coca-Cola", category: "Nước uống", unit: "lon", price: 10000, stock: 3, minStock: 20 },
+    { name: "Nước ngọt Coca-Cola", category: "Nước uống", unit: "lon", price: 10000, stock: 3, minStock: 20 }, // sắp hết hàng
     { name: "Bánh Oreo", category: "Bánh kẹo", unit: "gói", price: 15000, stock: 45, minStock: 10 },
-    { name: "Kẹo dẻo Haribo", category: "Bánh kẹo", unit: "gói", price: 28000, stock: 18, minStock: 6 },
+    { name: "Kẹo dẻo Haribo", category: "Bánh kẹo", unit: "gói", price: 28000, stock: 4, minStock: 6 }, // sắp hết hàng
   ];
   const products = sampleProducts.map(p => ProductStore.add(p, { silent: true }));
 
@@ -496,17 +496,44 @@ function seedIfEmpty() {
     { name: "Nguyễn Thị An", phone: "0901234567", address: "12 Lê Lợi, Q.1" },
     { name: "Trần Văn Bình", phone: "0912345678", address: "45 Nguyễn Trãi, Q.5" },
     { name: "Lê Thị Cúc", phone: "0987654321", address: "78 Cách Mạng Tháng 8" },
+    { name: "Phạm Thị Dung", phone: "0934567890", address: "9 Trần Hưng Đạo, Q.5" },
+    { name: "Hoàng Văn Em", phone: "0977889900", address: "56 Điện Biên Phủ, Bình Thạnh" },
   ];
   const customers = sampleCustomers.map(c => CustomerStore.add(c, { silent: true }));
 
-  // Tạo vài hóa đơn mẫu trong 14 ngày gần đây
+  // Tạo hóa đơn mẫu trong 14 ngày gần đây — đảm bảo mọi sản phẩm đều được bán ít nhất 1 lần
+  // để mục "sản phẩm bán chạy" có đủ dữ liệu phong phú.
   const now = new Date();
-  for (let i = 0; i < 12; i++) {
-    const daysAgo = Math.floor(Math.random() * 14);
+  let invoiceSeq = 0;
+
+  function pushInvoice(items, daysAgo, cust) {
     const d = new Date(now);
     d.setDate(d.getDate() - daysAgo);
     d.setHours(8 + Math.floor(Math.random() * 11), Math.floor(Math.random() * 60));
+    const list = loadList(DB_KEYS.invoices);
+    invoiceSeq = list.length + 1;
+    const total = items.reduce((s, it) => s + it.price * it.qty, 0);
+    list.push({
+      id: uid("hd"),
+      code: "HD" + String(invoiceSeq).padStart(5, "0"),
+      customerId: cust ? cust.id : null,
+      items,
+      total,
+      note: "",
+      createdAt: d.toISOString(),
+    });
+    saveList(DB_KEYS.invoices, list);
+  }
 
+  // Vòng 1: đảm bảo mỗi sản phẩm xuất hiện trong ít nhất 1 hóa đơn (đủ 8+ sản phẩm bán chạy)
+  products.forEach((p, idx) => {
+    const qty = 1 + Math.floor(Math.random() * 5);
+    const cust = Math.random() > 0.3 ? customers[idx % customers.length] : null;
+    pushInvoice([{ productId: p.id, name: p.name, price: p.price, qty }], Math.floor(Math.random() * 14), cust);
+  });
+
+  // Vòng 2: thêm hóa đơn ngẫu nhiên nhiều mặt hàng để dữ liệu doanh thu tự nhiên hơn
+  for (let i = 0; i < 8; i++) {
     const numItems = 1 + Math.floor(Math.random() * 3);
     const items = [];
     const usedIds = new Set();
@@ -519,30 +546,18 @@ function seedIfEmpty() {
     }
     if (items.length === 0) continue;
     const cust = Math.random() > 0.3 ? customers[Math.floor(Math.random() * customers.length)] : null;
-
-    const list = loadList(DB_KEYS.invoices);
-    const total = items.reduce((s, it) => s + it.price * it.qty, 0);
-    list.push({
-      id: uid("hd"),
-      code: "HD" + String(list.length + 1).padStart(5, "0"),
-      customerId: cust ? cust.id : null,
-      items,
-      total,
-      note: "",
-      createdAt: d.toISOString(),
-    });
-    saveList(DB_KEYS.invoices, list);
+    pushInvoice(items, Math.floor(Math.random() * 14), cust);
   }
 
   localStorage.setItem(DB_KEYS.seeded, "1");
 
   // Đơn đặt hàng online mẫu
-  OnlineOrderStore.add({
-    name: "Phạm Văn Đức",
-    phone: "0909112233",
-    address: "23 Nguyễn Văn Cừ, Q.5",
-    note: "2kg gạo ST25, 1 chai dầu ăn",
-  });
+  const sampleOnlineOrders = [
+    { name: "Phạm Văn Đức", phone: "0909112233", address: "23 Nguyễn Văn Cừ, Q.5", note: "2kg gạo ST25, 1 chai dầu ăn" },
+    { name: "Lê Thị Mai", phone: "0938112244", address: "88 Lý Thường Kiệt, Q.10", note: "1 thùng sữa Vinamilk" },
+    { name: "Võ Thành Long", phone: "0912993344", address: "15 Hoàng Diệu, Q.4", note: "5 gói mì Hảo Hảo, 1 chai nước mắm" },
+  ];
+  sampleOnlineOrders.forEach(o => OnlineOrderStore.add(o));
 
   // Nhà cung cấp mẫu
   const sampleSuppliers = [
@@ -550,6 +565,7 @@ function seedIfEmpty() {
     { name: "Công ty Bánh Kẹo Hải Hà", type: "Công ty bánh kẹo", phone: "0243 8621 953", note: "Liên hệ giờ hành chính" },
     { name: "Anh Tuấn — Sale khu vực", type: "Đại diện bán hàng (Sale)", phone: "0908 765 432", note: "Phụ trách gia vị & nước mắm" },
     { name: "Nhà phân phối Thực phẩm An Phát", type: "Nhà phân phối thực phẩm", phone: "0281 234 5678", note: "" },
+    { name: "Công ty Nước Giải Khát Suntory Pepsico", type: "Nhà phân phối thực phẩm", phone: "1800 5454 62", note: "Đặt hàng trước 15h để giao trong ngày" },
   ];
   sampleSuppliers.forEach(s => SupplierStore.add(s));
 
@@ -560,7 +576,13 @@ function seedIfEmpty() {
   // Nhân viên & chấm công mẫu
   const nv1 = EmployeeStore.add({ name: "Nguyễn Văn Nam", role: "Nhân viên phổ thông", dailyWage: 200000 });
   const nv2 = EmployeeStore.add({ name: "Trần Thị Hương", role: "Nhân viên phổ thông", dailyWage: 200000 });
+  const nv3 = EmployeeStore.add({ name: "Lê Văn Tùng", role: "Nhân viên giao hàng", dailyWage: 220000 });
+  const nv4 = EmployeeStore.add({ name: "Đỗ Thị Kim", role: "Nhân viên bán hàng", dailyWage: 200000 });
+  const nv5 = EmployeeStore.add({ name: "Phan Văn Hải", role: "Nhân viên phổ thông", dailyWage: 190000 });
   const todayStr = new Date().toISOString().slice(0, 10);
   AttendanceStore.add({ employeeId: nv1.id, date: todayStr, status: "Đủ công", note: "" });
   AttendanceStore.add({ employeeId: nv2.id, date: todayStr, status: "Nửa công", note: "Về sớm buổi chiều" });
+  AttendanceStore.add({ employeeId: nv3.id, date: todayStr, status: "Đủ công", note: "" });
+  AttendanceStore.add({ employeeId: nv4.id, date: todayStr, status: "Nghỉ", note: "Xin nghỉ ốm" });
+  AttendanceStore.add({ employeeId: nv5.id, date: todayStr, status: "Đủ công", note: "" });
 }

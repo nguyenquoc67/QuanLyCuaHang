@@ -956,7 +956,7 @@ function renderRevenue() {
   invoicesInRange.forEach(inv => inv.items.forEach(it => {
     productSales[it.name] = (productSales[it.name] || 0) + it.qty;
   }));
-  const top = Object.entries(productSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const top = Object.entries(productSales).sort((a, b) => b[1] - a[1]).slice(0, 8);
   document.getElementById("revenue-top-products").innerHTML = top.length
     ? top.map(([name, qty]) => `<div class="mini-row"><span>${name}</span><span class="tag">${qty} đã bán</span></div>`).join("")
     : `<p class="empty-note">Chưa có dữ liệu bán hàng.</p>`;
