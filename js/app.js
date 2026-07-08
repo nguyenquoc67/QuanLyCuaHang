@@ -10,6 +10,7 @@ const ICON_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 
 document.addEventListener("DOMContentLoaded", () => {
   seedIfEmpty();
+  syncProductCatalog();
   initNav();
   initModal();
   initAI();
@@ -20,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initRevenue();
   initContactWidget();
   initGreetingClock();
+  initNotesAndAttendance();
   renderDashboard();
   showView("dashboard");
 });
@@ -61,6 +63,7 @@ function showView(name) {
   if (name === "invoices") renderInvoices();
   if (name === "customers") renderCustomers();
   if (name === "suppliers") renderSuppliers();
+  if (name === "notes") { renderNotes(); renderEmployees(); renderAttendance(); }
   if (name === "revenue") renderRevenue();
 }
 
@@ -94,6 +97,177 @@ function showToast(message, type = "ok") {
     el.classList.remove("show");
     setTimeout(() => el.remove(), 300);
   }, 2600);
+}
+
+/* ---------------- Ghi chú & Chấm công ---------------- */
+function initNotesAndAttendance() {
+  document.querySelectorAll("#notes-subtabs .cat-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#notes-subtabs .cat-tab").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll(".subview").forEach(v => v.classList.remove("active"));
+      document.getElementById("subview-" + btn.dataset.subtab).classList.add("active");
+    });
+  });
+
+  document.getElementById("btn-add-note").addEventListener("click", openNoteForm);
+  document.getElementById("btn-add-employee").addEventListener("click", openEmployeeForm);
+  document.getElementById("btn-add-attendance").addEventListener("click", openAttendanceForm);
+}
+
+/* --- Ghi chú thanh toán / nợ --- */
+function openNoteForm() {
+  openModal(`
+    <h3>📝 Thêm ghi chú</h3>
+    <form id="note-form" class="form-grid">
+      <label>Loại
+        <select name="type">${NOTE_TYPES.map(t => `<option value="${t}">${t}</option>`).join("")}</select>
+      </label>
+      <label>Liên quan đến ai <input name="person" placeholder="VD: Anh Ba, Chị Hoa..."></label>
+      <label>Số tiền (₫) <input type="number" min="0" name="amount" placeholder="0"></label>
+      <label style="grid-column:1/-1">Nội dung <input name="content" placeholder="VD: Mua chịu gạo, hẹn trả cuối tháng"></label>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal()">Hủy</button>
+        <button type="submit" class="btn-primary">Lưu ghi chú</button>
+      </div>
+    </form>
+  `);
+  document.getElementById("note-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    NoteStore.add(data);
+    closeModal();
+    renderNotes();
+    showToast("Đã lưu ghi chú");
+  });
+}
+
+function renderNotes() {
+  const notes = NoteStore.all().slice().reverse();
+  const box = document.getElementById("note-list");
+  box.innerHTML = notes.length ? notes.map(n => `
+    <div class="note-row ${n.resolved ? "note-resolved" : ""}">
+      <div class="note-row-main">
+        <span class="tag note-tag-${slugify(n.type)}">${n.type}</span>
+        <span class="note-row-text">${n.content || "(không có nội dung)"}${n.person ? ` — <b>${n.person}</b>` : ""}</span>
+      </div>
+      <div class="note-row-side">
+        ${n.amount ? `<span class="tag">${formatVND(n.amount)}</span>` : ""}
+        <button class="btn-icon" onclick="toggleNoteResolved('${n.id}')" title="${n.resolved ? "Đánh dấu chưa xong" : "Đánh dấu đã xong"}" aria-label="Đánh dấu">${ICON_CHECK}</button>
+        <button class="btn-icon" onclick="removeNote('${n.id}')" title="Xóa" aria-label="Xóa ghi chú">${ICON_TRASH}</button>
+      </div>
+    </div>`).join("") : `<p class="empty-note">Chưa có ghi chú nào.</p>`;
+}
+
+function slugify(s) { return removeDiacritics(s.toLowerCase()).replace(/\s+/g, "-"); }
+
+function toggleNoteResolved(id) { NoteStore.toggleResolved(id); renderNotes(); }
+function removeNote(id) {
+  if (!confirm("Xóa ghi chú này?")) return;
+  NoteStore.remove(id);
+  renderNotes();
+  showToast("Đã xóa ghi chú", "warn");
+}
+
+/* --- Nhân viên --- */
+function openEmployeeForm() {
+  openModal(`
+    <h3>🧑‍💼 Thêm nhân viên</h3>
+    <form id="employee-form" class="form-grid">
+      <label>Họ tên <input required name="name"></label>
+      <label>Vai trò <input name="role" value="Nhân viên phổ thông"></label>
+      <label>Lương / ngày công (₫) <input type="number" min="0" name="dailyWage" placeholder="200000"></label>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal()">Hủy</button>
+        <button type="submit" class="btn-primary">Thêm nhân viên</button>
+      </div>
+    </form>
+  `);
+  document.getElementById("employee-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    EmployeeStore.add(data);
+    closeModal();
+    renderEmployees();
+    showToast("Đã thêm nhân viên");
+  });
+}
+
+function renderEmployees() {
+  const list = EmployeeStore.all();
+  const body = document.getElementById("employee-table-body");
+  body.innerHTML = list.length ? list.map(e => `
+    <tr>
+      <td>${e.name}</td>
+      <td>${e.role}</td>
+      <td>${e.dailyWage ? formatVND(e.dailyWage) : "—"}</td>
+      <td><button class="btn-icon" onclick="deleteEmployee('${e.id}')" title="Xóa" aria-label="Xóa nhân viên">${ICON_TRASH}</button></td>
+    </tr>`).join("") : `<tr><td colspan="4" class="empty-note">Chưa có nhân viên nào.</td></tr>`;
+}
+
+function deleteEmployee(id) {
+  if (!confirm("Xóa nhân viên này? Lịch sử chấm công của họ cũng sẽ bị xóa.")) return;
+  EmployeeStore.remove(id);
+  renderEmployees();
+  renderAttendance();
+  showToast("Đã xóa nhân viên", "warn");
+}
+
+/* --- Chấm công --- */
+function openAttendanceForm() {
+  const employees = EmployeeStore.all();
+  if (!employees.length) {
+    showToast("Hãy thêm nhân viên trước khi chấm công", "warn");
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  openModal(`
+    <h3>🗓️ Chấm công</h3>
+    <form id="attendance-form" class="form-grid">
+      <label>Nhân viên
+        <select name="employeeId">${employees.map(e => `<option value="${e.id}">${e.name}</option>`).join("")}</select>
+      </label>
+      <label>Ngày <input required type="date" name="date" value="${today}"></label>
+      <label>Trạng thái
+        <select name="status">${ATTENDANCE_STATUS.map(s => `<option value="${s}">${s}</option>`).join("")}</select>
+      </label>
+      <label>Ghi chú <input name="note" placeholder="VD: về sớm, tăng ca..."></label>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal()">Hủy</button>
+        <button type="submit" class="btn-primary">Lưu chấm công</button>
+      </div>
+    </form>
+  `);
+  document.getElementById("attendance-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    AttendanceStore.add(data);
+    closeModal();
+    renderAttendance();
+    showToast("Đã lưu chấm công");
+  });
+}
+
+function renderAttendance() {
+  const list = AttendanceStore.all().slice().reverse();
+  const body = document.getElementById("attendance-table-body");
+  body.innerHTML = list.length ? list.map(a => {
+    const emp = EmployeeStore.get(a.employeeId);
+    return `
+    <tr>
+      <td>${new Date(a.date).toLocaleDateString("vi-VN")}</td>
+      <td>${emp ? emp.name : "(đã xóa)"}</td>
+      <td><span class="tag ${a.status === "Nghỉ" ? "tag-warn" : ""}">${a.status}</span></td>
+      <td>${a.note || "—"}</td>
+      <td><button class="btn-icon" onclick="deleteAttendance('${a.id}')" title="Xóa" aria-label="Xóa chấm công">${ICON_TRASH}</button></td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="5" class="empty-note">Chưa có dữ liệu chấm công.</td></tr>`;
+}
+
+function deleteAttendance(id) {
+  AttendanceStore.remove(id);
+  renderAttendance();
+  showToast("Đã xóa bản ghi chấm công", "warn");
 }
 
 /* ---------------- Widget liên hệ & Đặt hàng online ---------------- */
