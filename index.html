@@ -42,6 +42,10 @@
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
         Nhà cung cấp
       </button>
+      <button class="nav-item" data-view="notes">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+        Ghi chú
+      </button>
     </nav>
   </aside>
 
@@ -192,6 +196,52 @@
           <thead><tr><th>Tên</th><th>Loại</th><th>Điện thoại</th><th>Ghi chú</th><th></th></tr></thead>
           <tbody id="supplier-table-body"></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- ============ GHI CHÚ & CHẤM CÔNG ============ -->
+    <section id="view-notes" class="view">
+      <h1 class="page-title">Sổ ghi chú</h1>
+      <p class="page-sub">Ghi lại thanh toán, công nợ và chấm công nhân viên phổ thông.</p>
+
+      <div class="cat-tabs-row" id="notes-subtabs">
+        <button type="button" class="cat-tab active" data-subtab="ledger">📝 Ghi chú thanh toán / nợ</button>
+        <button type="button" class="cat-tab" data-subtab="attendance">🧑‍💼 Chấm công nhân viên</button>
+      </div>
+
+      <!-- Ghi chú thanh toán / nợ -->
+      <div id="subview-ledger" class="subview active">
+        <div class="card">
+          <div class="toolbar">
+            <span class="page-sub" style="margin:0">Tiền mặt, chuyển khoản, hoặc ai đó đang nợ tiền cửa hàng.</span>
+            <button class="btn-primary" id="btn-add-note">+ Thêm ghi chú</button>
+          </div>
+          <div id="note-list"></div>
+        </div>
+      </div>
+
+      <!-- Chấm công nhân viên -->
+      <div id="subview-attendance" class="subview">
+        <div class="card">
+          <div class="toolbar">
+            <span class="page-sub" style="margin:0">Danh sách nhân viên phổ thông.</span>
+            <button class="btn-primary" id="btn-add-employee">+ Thêm nhân viên</button>
+          </div>
+          <table>
+            <thead><tr><th>Tên</th><th>Vai trò</th><th>Lương/ngày công</th><th></th></tr></thead>
+            <tbody id="employee-table-body"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="toolbar">
+            <span class="page-sub" style="margin:0">Ghi nhận công theo ngày.</span>
+            <button class="btn-primary" id="btn-add-attendance">+ Chấm công</button>
+          </div>
+          <table>
+            <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Trạng thái</th><th>Ghi chú</th><th></th></tr></thead>
+            <tbody id="attendance-table-body"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
