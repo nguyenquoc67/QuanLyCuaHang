@@ -7,8 +7,12 @@ const DB_KEYS = {
   products: "sth_products",
   customers: "sth_customers",
   invoices: "sth_invoices",
+  onlineOrders: "sth_online_orders",
+  suppliers: "sth_suppliers",
   seeded: "sth_seeded_v1",
 };
+
+const CATEGORY_LIST = ["Đồ ăn", "Nước uống", "Gia vị", "Bánh kẹo", "Khác"];
 
 function uid(prefix) {
   return prefix + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -165,6 +169,64 @@ const InvoiceStore = {
   },
 };
 
+/* ---------------- Nhà cung cấp ---------------- */
+const SUPPLIER_TYPES = ["Công ty sữa", "Công ty bánh kẹo", "Đại diện bán hàng (Sale)", "Nhà phân phối thực phẩm", "Khác"];
+
+const SupplierStore = {
+  all() { return loadList(DB_KEYS.suppliers); },
+  get(id) { return this.all().find(s => s.id === id) || null; },
+  add(data) {
+    const list = this.all();
+    const item = {
+      id: uid("ncc"),
+      name: data.name.trim(),
+      type: data.type || "Khác",
+      phone: data.phone || "",
+      note: data.note || "",
+      createdAt: new Date().toISOString(),
+    };
+    list.push(item);
+    saveList(DB_KEYS.suppliers, list);
+    return item;
+  },
+  update(id, data) {
+    const list = this.all();
+    const idx = list.findIndex(s => s.id === id);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...data };
+    saveList(DB_KEYS.suppliers, list);
+    return list[idx];
+  },
+  remove(id) {
+    saveList(DB_KEYS.suppliers, this.all().filter(s => s.id !== id));
+  },
+};
+
+/* ---------------- Đơn đặt hàng online ---------------- */
+const OnlineOrderStore = {
+  all() { return loadList(DB_KEYS.onlineOrders); },
+  add(data) {
+    const list = this.all();
+    const item = {
+      id: uid("dh"),
+      name: data.name.trim(),
+      phone: data.phone.trim(),
+      address: data.address.trim(),
+      note: (data.note || "").trim(),
+      status: "moi",
+      createdAt: new Date().toISOString(),
+    };
+    list.push(item);
+    saveList(DB_KEYS.onlineOrders, list);
+    return item;
+  },
+  remove(id) {
+    const list = this.all().filter(o => o.id !== id);
+    saveList(DB_KEYS.onlineOrders, list);
+  },
+  pending() { return this.all().filter(o => o.status === "moi"); },
+};
+
 /* ---------------- Tiện ích chung ---------------- */
 function removeDiacritics(str) {
   return str
@@ -187,14 +249,16 @@ function seedIfEmpty() {
   if (localStorage.getItem(DB_KEYS.seeded)) return;
 
   const sampleProducts = [
-    { name: "Gạo ST25", category: "Lương thực", unit: "kg", price: 22000, stock: 80, minStock: 15 },
+    { name: "Gạo ST25", category: "Đồ ăn", unit: "kg", price: 22000, stock: 80, minStock: 15 },
     { name: "Nước mắm Phú Quốc", category: "Gia vị", unit: "chai", price: 45000, stock: 30, minStock: 8 },
-    { name: "Mì gói Hảo Hảo", category: "Ăn liền", unit: "gói", price: 4000, stock: 200, minStock: 30 },
-    { name: "Trứng gà", category: "Thực phẩm tươi", unit: "chục", price: 32000, stock: 20, minStock: 10 },
+    { name: "Mì gói Hảo Hảo", category: "Đồ ăn", unit: "gói", price: 4000, stock: 200, minStock: 30 },
+    { name: "Trứng gà", category: "Đồ ăn", unit: "chục", price: 32000, stock: 20, minStock: 10 },
     { name: "Dầu ăn Neptune", category: "Gia vị", unit: "chai", price: 52000, stock: 25, minStock: 6 },
-    { name: "Sữa Vinamilk", category: "Sữa & đồ uống", unit: "hộp", price: 7000, stock: 150, minStock: 20 },
+    { name: "Sữa Vinamilk", category: "Nước uống", unit: "hộp", price: 7000, stock: 150, minStock: 20 },
     { name: "Đường cát trắng", category: "Gia vị", unit: "kg", price: 24000, stock: 40, minStock: 10 },
-    { name: "Nước ngọt Coca-Cola", category: "Sữa & đồ uống", unit: "lon", price: 10000, stock: 3, minStock: 20 },
+    { name: "Nước ngọt Coca-Cola", category: "Nước uống", unit: "lon", price: 10000, stock: 3, minStock: 20 },
+    { name: "Bánh Oreo", category: "Bánh kẹo", unit: "gói", price: 15000, stock: 45, minStock: 10 },
+    { name: "Kẹo dẻo Haribo", category: "Bánh kẹo", unit: "gói", price: 28000, stock: 18, minStock: 6 },
   ];
   const products = sampleProducts.map(p => ProductStore.add(p));
 
@@ -241,4 +305,21 @@ function seedIfEmpty() {
   }
 
   localStorage.setItem(DB_KEYS.seeded, "1");
+
+  // Đơn đặt hàng online mẫu
+  OnlineOrderStore.add({
+    name: "Phạm Văn Đức",
+    phone: "0909112233",
+    address: "23 Nguyễn Văn Cừ, Q.5",
+    note: "2kg gạo ST25, 1 chai dầu ăn",
+  });
+
+  // Nhà cung cấp mẫu
+  const sampleSuppliers = [
+    { name: "Công ty Sữa Vinamilk", type: "Công ty sữa", phone: "1900 545 425", note: "Đặt hàng qua tổng đài, giao trong 2 ngày" },
+    { name: "Công ty Bánh Kẹo Hải Hà", type: "Công ty bánh kẹo", phone: "0243 8621 953", note: "Liên hệ giờ hành chính" },
+    { name: "Anh Tuấn — Sale khu vực", type: "Đại diện bán hàng (Sale)", phone: "0908 765 432", note: "Phụ trách gia vị & nước mắm" },
+    { name: "Nhà phân phối Thực phẩm An Phát", type: "Nhà phân phối thực phẩm", phone: "0281 234 5678", note: "" },
+  ];
+  sampleSuppliers.forEach(s => SupplierStore.add(s));
 }

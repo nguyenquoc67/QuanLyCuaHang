@@ -54,12 +54,22 @@ function resolveTimeExpression(textNorm, now = new Date()) {
     }
   }
 
-  // "N ngày qua / N ngày trước"
-  const nDaysMatch = t.match(/\b(\d+)\s*ngay\s*(qua|truoc|gan day)\b/);
+  // "N ngày qua / N ngày trước / N ngày gần đây / N ngày"
+  const nDaysMatch = t.match(/\b(\d+)\s*ngay(?:\s*(qua|truoc|gan day))?\b/);
   if (nDaysMatch) {
     const n = parseInt(nDaysMatch[1], 10);
-    const s = new Date(now); s.setDate(s.getDate() - (n - 1));
-    return { start: startOfDay(s), end: endOfDay(now), label: `${n} ngày gần đây` };
+    if (n > 0 && n <= 365) {
+      const s = new Date(now); s.setDate(s.getDate() - (n - 1));
+      return { start: startOfDay(s), end: endOfDay(now), label: `${n} ngày gần đây` };
+    }
+  }
+
+  // "N tuần qua/trước"
+  const nWeeksMatch = t.match(/\b(\d+)\s*tuan\s*(qua|truoc|gan day)?\b/);
+  if (nWeeksMatch) {
+    const n = parseInt(nWeeksMatch[1], 10);
+    const s = new Date(now); s.setDate(s.getDate() - (n * 7 - 1));
+    return { start: startOfDay(s), end: endOfDay(now), label: `${n} tuần gần đây` };
   }
 
   return null; // Không tìm thấy mốc thời gian rõ ràng
@@ -73,6 +83,33 @@ function extractNameAfter(textOriginal, keywords) {
     if (m && m[1]) return m[1].trim();
   }
   return null;
+}
+
+/* ---------------- Hàm phân tích dữ liệu nâng cao ---------------- */
+
+function topProductsByQty(invoices, n = 5) {
+  const sales = {};
+  invoices.forEach(inv => inv.items.forEach(it => { sales[it.name] = (sales[it.name] || 0) + it.qty; }));
+  return Object.entries(sales).sort((a, b) => b[1] - a[1]).slice(0, n);
+}
+
+function topCustomersBySpend(n = 5) {
+  const invoices = InvoiceStore.all();
+  const spend = {};
+  invoices.forEach(inv => {
+    if (!inv.customerId) return;
+    spend[inv.customerId] = (spend[inv.customerId] || 0) + inv.total;
+  });
+  return Object.entries(spend)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([id, total]) => ({ customer: CustomerStore.get(id), total }))
+    .filter(x => x.customer);
+}
+
+function averageOrderValue(invoices) {
+  if (!invoices.length) return 0;
+  return Math.round(InvoiceStore.revenueOf(invoices) / invoices.length);
 }
 
 /**

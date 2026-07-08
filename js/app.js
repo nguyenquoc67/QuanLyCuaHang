@@ -2,6 +2,12 @@
    SỔ TẠP HÓA — app.js (điều hướng, hiển thị, CRUD, modal, AI)
    ============================================================ */
 
+const ICON_EDIT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`;
+const ICON_TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`;
+const ICON_EYE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const ICON_X = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+const ICON_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+
 document.addEventListener("DOMContentLoaded", () => {
   seedIfEmpty();
   initNav();
@@ -10,10 +16,30 @@ document.addEventListener("DOMContentLoaded", () => {
   initProducts();
   initInvoices();
   initCustomers();
+  initSuppliers();
   initRevenue();
+  initContactWidget();
+  initGreetingClock();
   renderDashboard();
   showView("dashboard");
 });
+
+/* ---------------- Lời chào + đồng hồ ---------------- */
+const WEEKDAY_VN = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+
+function initGreetingClock() {
+  updateGreetingClock();
+  setInterval(updateGreetingClock, 1000);
+}
+
+function updateGreetingClock() {
+  const now = new Date();
+  const weekday = WEEKDAY_VN[now.getDay()];
+  const dateStr = `ngày ${String(now.getDate()).padStart(2, "0")} tháng ${String(now.getMonth() + 1).padStart(2, "0")} năm ${now.getFullYear()}`;
+  const timeStr = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const el = document.getElementById("greeting-text");
+  if (el) el.textContent = `Xin chào! Hôm nay là ${weekday}, ${dateStr} — bây giờ là ${timeStr}.`;
+}
 
 /* ---------------- Điều hướng ---------------- */
 function initNav() {
@@ -34,6 +60,7 @@ function showView(name) {
   if (name === "products") renderProducts();
   if (name === "invoices") renderInvoices();
   if (name === "customers") renderCustomers();
+  if (name === "suppliers") renderSuppliers();
   if (name === "revenue") renderRevenue();
 }
 
@@ -69,6 +96,81 @@ function showToast(message, type = "ok") {
   }, 2600);
 }
 
+/* ---------------- Widget liên hệ & Đặt hàng online ---------------- */
+function initContactWidget() {
+  const widget = document.getElementById("contact-widget");
+  const fab = document.getElementById("contact-fab");
+  fab.addEventListener("click", () => {
+    const isOpen = widget.classList.toggle("open");
+    fab.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  });
+  document.addEventListener("click", (e) => {
+    if (widget.classList.contains("open") && !widget.contains(e.target)) {
+      widget.classList.remove("open");
+      fab.setAttribute("aria-expanded", "false");
+    }
+  });
+  document.getElementById("btn-order-online").addEventListener("click", () => {
+    widget.classList.remove("open");
+    openOrderForm();
+  });
+}
+
+function openOrderForm() {
+  openModal(`
+    <h3>🛍️ Đặt hàng online</h3>
+    <p class="page-sub" style="margin-bottom:4px">Để lại thông tin, cửa hàng sẽ liên hệ xác nhận đơn hàng qua Zalo/điện thoại sớm nhất.</p>
+    <form id="order-form" class="form-grid">
+      <label style="grid-column:1/-1">Họ và tên <input required name="name" placeholder="Nguyễn Văn A"></label>
+      <label>Số điện thoại <input required name="phone" type="tel" placeholder="09xxxxxxxx"></label>
+      <label>Địa chỉ nhận hàng <input required name="address" placeholder="Số nhà, đường, phường/xã"></label>
+      <label style="grid-column:1/-1">Bạn muốn mua gì? <input name="note" placeholder="VD: 2kg gạo, 1 chai nước mắm..."></label>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal()">Hủy</button>
+        <button type="submit" class="btn-primary">Gửi đơn đặt hàng</button>
+      </div>
+    </form>
+  `);
+  document.getElementById("order-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    const order = OnlineOrderStore.add(data);
+    showOrderConfirmation(order);
+    renderDashboard();
+  });
+}
+
+function showOrderConfirmation(order) {
+  const message = `Xin chào, tôi muốn đặt hàng:%0A- Họ tên: ${order.name}%0A- SĐT: ${order.phone}%0A- Địa chỉ: ${order.address}%0A- Mặt hàng: ${order.note || "(chưa ghi rõ)"}`;
+  openModal(`
+    <h3>✅ Đã ghi nhận đơn hàng!</h3>
+    <p>Cảm ơn ${order.name}. Để được xử lý nhanh nhất, bạn có thể nhắn tin xác nhận qua Zalo cho cửa hàng:</p>
+    <div class="form-actions" style="justify-content:flex-start">
+      <a class="btn-primary" style="text-decoration:none" href="https://zalo.me/0983621217" target="_blank" rel="noopener">Mở Zalo nhắn xác nhận</a>
+      <button class="btn-ghost" onclick="closeModal()">Đóng</button>
+    </div>
+  `);
+}
+
+function renderDashboardOnlineOrders() {
+  const pending = OnlineOrderStore.pending().slice().reverse();
+  const box = document.getElementById("dashboard-online-orders");
+  box.innerHTML = pending.length ? pending.map(o => `
+    <div class="order-row">
+      <div>
+        <div class="order-row-name">${o.name} — ${o.phone}</div>
+        <div class="order-row-meta">${o.address}${o.note ? " · " + o.note : ""} · ${formatDate(o.createdAt)}</div>
+      </div>
+      <button class="btn-icon" onclick="resolveOnlineOrder('${o.id}')" title="Đánh dấu đã xử lý" aria-label="Đã xử lý">${ICON_CHECK}</button>
+    </div>`).join("") : `<p class="empty-note">Chưa có đơn đặt hàng online nào.</p>`;
+}
+
+function resolveOnlineOrder(id) {
+  OnlineOrderStore.remove(id);
+  renderDashboard();
+  showToast("Đã xử lý đơn đặt hàng");
+}
+
 /* ---------------- Dashboard ---------------- */
 function renderDashboard() {
   const now = new Date();
@@ -94,6 +196,8 @@ function renderDashboard() {
           <span class="tag tag-warn">còn ${p.stock} ${p.unit}</span>
         </div>`).join("")
     : `<p class="empty-note">Không có sản phẩm sắp hết hàng 🎉</p>`;
+
+  renderDashboardOnlineOrders();
 }
 
 function rowInvoiceMini(inv) {
@@ -106,26 +210,48 @@ function rowInvoiceMini(inv) {
 }
 
 /* ---------------- Sản phẩm ---------------- */
+let currentCategoryFilter = "Tất cả";
+
 function initProducts() {
   document.getElementById("btn-add-product").addEventListener("click", () => openProductForm());
   document.getElementById("product-search").addEventListener("input", renderProducts);
+  renderCategoryTabs();
+}
+
+function renderCategoryTabs() {
+  const tabs = ["Tất cả", ...CATEGORY_LIST];
+  const box = document.getElementById("category-tabs");
+  box.innerHTML = tabs.map(cat => `
+    <button type="button" class="cat-tab ${cat === currentCategoryFilter ? "active" : ""}" data-cat="${cat}">${cat}</button>
+  `).join("");
+  box.querySelectorAll(".cat-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentCategoryFilter = btn.dataset.cat;
+      renderCategoryTabs();
+      renderProducts();
+    });
+  });
 }
 
 function renderProducts() {
   const q = removeDiacritics((document.getElementById("product-search").value || "").toLowerCase());
-  const list = ProductStore.all().filter(p => removeDiacritics(p.name.toLowerCase()).includes(q));
+  const list = ProductStore.all().filter(p => {
+    const matchesSearch = removeDiacritics(p.name.toLowerCase()).includes(q);
+    const matchesCategory = currentCategoryFilter === "Tất cả" || p.category === currentCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
   const body = document.getElementById("product-table-body");
   body.innerHTML = list.length ? list.map(p => `
     <tr class="${p.stock <= p.minStock ? "row-warn" : ""}">
       <td>${p.name}</td>
-      <td>${p.category}</td>
+      <td><span class="tag">${p.category}</span></td>
       <td>${formatVND(p.price)} / ${p.unit}</td>
       <td>${p.stock} ${p.unit}</td>
       <td>
-        <button class="btn-icon" onclick="openProductForm('${p.id}')" title="Sửa">✏️</button>
-        <button class="btn-icon" onclick="deleteProduct('${p.id}')" title="Xóa">🗑️</button>
+        <button class="btn-icon" onclick="openProductForm('${p.id}')" title="Sửa" aria-label="Sửa sản phẩm">${ICON_EDIT}</button>
+        <button class="btn-icon" onclick="deleteProduct('${p.id}')" title="Xóa" aria-label="Xóa sản phẩm">${ICON_TRASH}</button>
       </td>
-    </tr>`).join("") : `<tr><td colspan="5" class="empty-note">Không có sản phẩm nào.</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="5" class="empty-note">Không có sản phẩm nào trong danh mục này.</td></tr>`;
 }
 
 function openProductForm(id) {
@@ -134,7 +260,11 @@ function openProductForm(id) {
     <h3>${p ? "Sửa sản phẩm" : "Thêm sản phẩm mới"}</h3>
     <form id="product-form" class="form-grid">
       <label>Tên sản phẩm <input required name="name" value="${p ? p.name : ""}"></label>
-      <label>Danh mục <input name="category" value="${p ? p.category : ""}" placeholder="VD: Gia vị"></label>
+      <label>Danh mục
+        <select name="category">
+          ${CATEGORY_LIST.map(c => `<option value="${c}" ${p && p.category === c ? "selected" : ""}>${c}</option>`).join("")}
+        </select>
+      </label>
       <label>Đơn vị tính <input name="unit" value="${p ? p.unit : "cái"}" placeholder="kg, chai, gói..."></label>
       <label>Giá bán (₫) <input required type="number" min="0" name="price" value="${p ? p.price : ""}"></label>
       <label>Số lượng tồn <input required type="number" min="0" name="stock" value="${p ? p.stock : ""}"></label>
@@ -183,8 +313,8 @@ function renderCustomers() {
       <td>${c.address || "—"}</td>
       <td>${formatVND(spent)}</td>
       <td>
-        <button class="btn-icon" onclick="openCustomerForm('${c.id}')" title="Sửa">✏️</button>
-        <button class="btn-icon" onclick="deleteCustomer('${c.id}')" title="Xóa">🗑️</button>
+        <button class="btn-icon" onclick="openCustomerForm('${c.id}')" title="Sửa" aria-label="Sửa khách hàng">${ICON_EDIT}</button>
+        <button class="btn-icon" onclick="deleteCustomer('${c.id}')" title="Xóa" aria-label="Xóa khách hàng">${ICON_TRASH}</button>
       </td>
     </tr>`;
   }).join("") : `<tr><td colspan="5" class="empty-note">Chưa có khách hàng nào.</td></tr>`;
@@ -223,6 +353,65 @@ function deleteCustomer(id) {
   showToast("Đã xóa khách hàng", "warn");
 }
 
+/* ---------------- Nhà cung cấp ---------------- */
+function initSuppliers() {
+  document.getElementById("btn-add-supplier").addEventListener("click", () => openSupplierForm());
+  document.getElementById("supplier-search").addEventListener("input", renderSuppliers);
+}
+
+function renderSuppliers() {
+  const q = removeDiacritics((document.getElementById("supplier-search").value || "").toLowerCase());
+  const list = SupplierStore.all().filter(s => removeDiacritics((s.name + " " + s.type).toLowerCase()).includes(q));
+  const body = document.getElementById("supplier-table-body");
+  body.innerHTML = list.length ? list.map(s => `
+    <tr>
+      <td>${s.name}</td>
+      <td><span class="tag">${s.type}</span></td>
+      <td><a href="tel:${s.phone.replace(/\s/g, "")}" class="phone-link">${s.phone || "—"}</a></td>
+      <td>${s.note || "—"}</td>
+      <td>
+        <button class="btn-icon" onclick="openSupplierForm('${s.id}')" title="Sửa" aria-label="Sửa nhà cung cấp">${ICON_EDIT}</button>
+        <button class="btn-icon" onclick="deleteSupplier('${s.id}')" title="Xóa" aria-label="Xóa nhà cung cấp">${ICON_TRASH}</button>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="5" class="empty-note">Chưa có nhà cung cấp nào.</td></tr>`;
+}
+
+function openSupplierForm(id) {
+  const s = id ? SupplierStore.get(id) : null;
+  openModal(`
+    <h3>${s ? "Sửa nhà cung cấp" : "Thêm nhà cung cấp mới"}</h3>
+    <form id="supplier-form" class="form-grid">
+      <label style="grid-column:1/-1">Tên nhà cung cấp <input required name="name" value="${s ? s.name : ""}" placeholder="VD: Công ty Sữa Vinamilk"></label>
+      <label>Loại
+        <select name="type">
+          ${SUPPLIER_TYPES.map(t => `<option value="${t}" ${s && s.type === t ? "selected" : ""}>${t}</option>`).join("")}
+        </select>
+      </label>
+      <label>Số điện thoại <input required name="phone" value="${s ? s.phone : ""}"></label>
+      <label style="grid-column:1/-1">Ghi chú <input name="note" value="${s ? s.note : ""}" placeholder="VD: mặt hàng phụ trách, giờ liên hệ..."></label>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal()">Hủy</button>
+        <button type="submit" class="btn-primary">${s ? "Lưu thay đổi" : "Thêm nhà cung cấp"}</button>
+      </div>
+    </form>
+  `);
+  document.getElementById("supplier-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    if (s) { SupplierStore.update(s.id, data); showToast("Đã cập nhật nhà cung cấp"); }
+    else { SupplierStore.add(data); showToast("Đã thêm nhà cung cấp mới"); }
+    closeModal();
+    renderSuppliers();
+  });
+}
+
+function deleteSupplier(id) {
+  if (!confirm("Xóa nhà cung cấp này?")) return;
+  SupplierStore.remove(id);
+  renderSuppliers();
+  showToast("Đã xóa nhà cung cấp", "warn");
+}
+
 /* ---------------- Hóa đơn ---------------- */
 let draftItems = [];
 
@@ -249,8 +438,8 @@ function renderInvoices() {
       <td>${i.items.length} mặt hàng</td>
       <td>${formatVND(i.total)}</td>
       <td>
-        <button class="btn-icon" onclick="viewInvoice('${i.id}')" title="Xem">👁️</button>
-        <button class="btn-icon" onclick="deleteInvoice('${i.id}')" title="Xóa">🗑️</button>
+        <button class="btn-icon" onclick="viewInvoice('${i.id}')" title="Xem" aria-label="Xem hóa đơn">${ICON_EYE}</button>
+        <button class="btn-icon" onclick="deleteInvoice('${i.id}')" title="Xóa" aria-label="Xóa hóa đơn">${ICON_TRASH}</button>
       </td>
     </tr>`;
   }).join("") : `<tr><td colspan="6" class="empty-note">Chưa có hóa đơn nào.</td></tr>`;
@@ -320,7 +509,7 @@ function renderDraftItems() {
       <td>${it.qty}</td>
       <td>${formatVND(it.price)}</td>
       <td>${formatVND(it.price * it.qty)}</td>
-      <td><button type="button" class="btn-icon" onclick="removeDraftItem('${it.productId}')">✕</button></td>
+      <td><button type="button" class="btn-icon" onclick="removeDraftItem('${it.productId}')" aria-label="Bỏ mặt hàng">${ICON_X}</button></td>
     </tr>`).join("") : `<tr><td colspan="5" class="empty-note">Chưa có mặt hàng nào.</td></tr>`;
   const total = draftItems.reduce((s, it) => s + it.price * it.qty, 0);
   document.getElementById("draft-total").textContent = formatVND(total);
