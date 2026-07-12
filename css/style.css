@@ -23,7 +23,10 @@
 
   --radius: 10px;
   --shadow-card: 0 2px 0 var(--paper-darker), 0 6px 16px rgba(43, 27, 18, 0.12);
-  --bg-gradient: linear-gradient(165deg, #F2E9D2 0%, var(--paper) 45%, #E6D9B5 100%);
+  --bg-gradient: linear-gradient(165deg, #F7EFD9 0%, #F0E4C4 30%, #E7D6A8 62%, #DAC287 100%);
+  --bg-glow-1: radial-gradient(circle at 12% 8%, rgba(255,255,255,0.55), transparent 42%);
+  --bg-glow-2: radial-gradient(circle at 90% 95%, rgba(161,61,43,0.07), transparent 48%);
+  --paper-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --transition-theme: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
   --sidebar-bg: #2B1B12;
   --sidebar-text: #F7F1DF;
@@ -41,7 +44,9 @@
   --green: #7CB56A;
   --line: #46392A;
   --white-paper: #262017;
-  --bg-gradient: linear-gradient(165deg, #17130E 0%, #1E1812 45%, #241D14 100%);
+  --bg-gradient: linear-gradient(165deg, #1B140D 0%, #201808 38%, #241C0D 68%, #150F07 100%);
+  --bg-glow-1: radial-gradient(circle at 12% 8%, rgba(221,178,95,0.10), transparent 45%);
+  --bg-glow-2: radial-gradient(circle at 90% 95%, rgba(0,0,0,0.35), transparent 50%);
   --shadow-card: 0 2px 0 #14100B, 0 6px 18px rgba(0,0,0,0.4);
   --sidebar-bg: #120D08;
   --sidebar-text: #EFE6D2;
@@ -75,8 +80,11 @@ body {
   margin: 0;
   font-family: var(--font-body);
   color: var(--ink);
-  background: var(--bg-gradient);
-  background-attachment: fixed;
+  background-image: var(--paper-noise), var(--bg-glow-1), var(--bg-glow-2), var(--bg-gradient);
+  background-blend-mode: overlay, soft-light, multiply, normal;
+  background-size: 220px 220px, cover, cover, cover;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed, fixed;
   min-height: 100vh;
   transition: var(--transition-theme);
 }
@@ -547,6 +555,14 @@ tr.row-warn td:first-child { border-left: 3px solid var(--gold); }
 .order-row:last-child { border-bottom: none; }
 .order-row-name { font-weight: 600; }
 .order-row-meta { color: var(--ink-soft); font-size: 12.5px; margin-top: 2px; }
+
+/* ---------------- Texture giấy cho card & khối nổi ---------------- */
+.card, .stat-card, .topbar, .modal-card, .contact-item {
+  background-image: var(--paper-noise);
+  background-blend-mode: overlay;
+  background-size: 220px 220px;
+  background-repeat: repeat;
+}
 
 /* ---------------- Responsive ---------------- */
 @media (max-width: 900px) {
